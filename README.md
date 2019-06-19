@@ -10,7 +10,7 @@ tags: [git, Notebooks/personal/git/git-flight-rules]
 
 #### What are "flight rules"?
 
-A [guide for astronauts](https://www.jsc.nasa.gov/news/columbia/fr_generic.pdf) (now, programmers using Git) about what to do when things go wrong.
+A guide for astronauts (now, programmers using Git) about what to do when things go wrong.
 
 >  *Flight Rules* are the hard-earned body of knowledge recorded in manuals that list, step-by-step, what to do if X occurs, and why. Essentially, they are extremely detailed, scenario-specific standard operating procedures. [...]
 
@@ -44,6 +44,7 @@ All commands should work for at least git version 2.13.0. See the [git website](
     - [I accidentally did a hard reset, and I want my changes back](#i-accidentally-did-a-hard-reset-and-i-want-my-changes-back)
     - [I accidentally committed and pushed a merge](#i-accidentally-committed-and-pushed-a-merge)
     - [I accidentally committed and pushed files containing sensitive data](#i-accidentally-committed-and-pushed-files-containing-sensitive-data)
+    - [I want to remove a large file from ever existing in repo history](#i-want-to-remove-a-large-file-from-ever-existing-in-repo-history)
     - [I need to change the content of a commit which is not my last](#i-need-to-change-the-content-of-a-commit-which-is-not-my-last)
   - [Staging](#staging)
     - [I need to add staged changes to the previous commit](#i-need-to-add-staged-changes-to-the-previous-commit)
@@ -119,6 +120,7 @@ All commands should work for at least git version 2.13.0. See the [git website](
     - [I want to revert a file to a specific revision](#i-want-to-revert-a-file-to-a-specific-revision)
     - [I want to list changes of a specific file between commits or branches](#i-want-to-list-changes-of-a-specific-file-between-commits-or-branches)
     - [I want Git to ignore changes to a specific file](#i-want-git-to-ignore-changes-to-a-specific-file)
+  - [Debugging with Git](#debugging-with-git)
   - [Configuration](#configuration)
     - [I want to add aliases for some Git commands](#i-want-to-add-aliases-for-some-git-commands)
     - [I want to add an empty directory to my repository](#i-want-to-add-an-empty-directory-to-my-repository)
@@ -130,11 +132,11 @@ All commands should work for at least git version 2.13.0. See the [git website](
   - [Git Shortcuts](#git-shortcuts)
     - [Git Bash](#git-bash)
     - [PowerShell on Windows](#powershell-on-windows)
-  - [Other Resources](#other-resources)
-    - [Books](#books)
-    - [Tutorials](#tutorials)
-    - [Scripts and Tools](#scripts-and-tools)
-    - [GUI Clients](#gui-clients)
+- [Other Resources](#other-resources)
+  - [Books](#books)
+  - [Tutorials](#tutorials)
+  - [Scripts and Tools](#scripts-and-tools)
+  - [GUI Clients](#gui-clients)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -342,7 +344,7 @@ Note: the parent number is not a commit identifier. Rather, a merge commit has a
 <a href="undo-sensitive-commit-push"></a>
 ### I accidentally committed and pushed files containing sensitive data
 
-If you accidentally pushed files containing sensitive data (passwords, keys, etc.), you can amend the previous commit. Keep in mind that once you have pushed a commit, you should consider any data it contains to be compromised. These steps can remove the sensitive data from your public repo or your local copy, but you **cannot** remove the sensitive data from other people's pulled copies. If you committed a password, **change it immediately**. If you committed a key, **re-generate it immediately**. Amending the pushed commit is not enough, since anyone could have pulled the original commit containing your sensitive data in the meantime. 
+If you accidentally pushed files containing sensitive, or private data (passwords, keys, etc.), you can amend the previous commit. Keep in mind that once you have pushed a commit, you should consider any data it contains to be compromised. These steps can remove the sensitive data from your public repo or your local copy, but you **cannot** remove the sensitive data from other people's pulled copies. If you committed a password, **change it immediately**. If you committed a key, **re-generate it immediately**. Amending the pushed commit is not enough, since anyone could have pulled the original commit containing your sensitive data in the meantime. 
 
 If you edit the file and remove the sensitive data, then run
 ```sh
@@ -369,6 +371,77 @@ If you want to completely remove an entire file (and not keep it locally), then 
 ```
 
 If you have made other commits in the meantime (i.e. the sensitive data is in a commit before the previous commit), you will have to rebase. 
+
+<a href="#i-want-to-remove-a-large-file-from-ever-existing-in-repo-history"></a>
+### I want to remove a large file from ever existing in repo history
+
+If the file you want to delete is secret or sensitive, instead see [how to remove sensitive files](#i-accidentally-committed-and-pushed-files-containing-sensitive-data).
+
+Even if you delete a large or unwanted file in a recent commit, it still exists in git history, in your repo's `.git` folder, and will make `git clone` download unneeded files. 
+
+The actions in this part of the guide will require a force push, and rewrite large sections of repo history, so if you are working with remote collaborators, check first that any local work of theirs is pushed.
+
+There are two options for rewriting history, the built-in `git-filter-branch` or [`bfg-repo-cleaner`](https://rtyley.github.io/bfg-repo-cleaner/). `bfg` is significantly cleaner and more performant, but it is a third-party download and requires java. We will describe both alternatives. The final step is to force push your changes, which requires special consideration on top of a regular force push, given that a great deal of repo history will have been permanently changed.
+
+#### Recommended Technique: Use third-party bfg
+
+Using bfg-repo-cleaner requires java. Download the bfg jar from the link [here](https://rtyley.github.io/bfg-repo-cleaner/). Our examples will use `bfg.jar`, but your download may have a version number, e.g. `bfg-1.13.0.jar`.
+
+To delete a specific file. 
+```sh
+(master)$ git rm path/to/filetoremove
+(master)$ git commit -m "Commit removing filetoremove"
+(master)$ java -jar ~/Downloads/bfg.jar --delete-files filetoremove
+```
+Note that in bfg you must use the plain file name even if it is in a subdirectory.
+
+You can also delete a file by pattern, e.g.:
+```sh
+(master)$ git rm *.jpg
+(master)$ git commit -m "Commit removing *.jpg"
+(master)$ java -jar ~/Downloads/bfg.jar --delete-files *.jpg
+```
+
+With bfg, the files that exist on your latest commit will not be affected. For example, if you had several large .tga files in your repo, and then in an earlier commit, you deleted a subset of them, this call does not touch files present in the latest commit
+
+Note, if you renamed a file as part of a commit, e.g. if it started as `LargeFileFirstName.mp4` and a commit changed it to `LargeFileSecondName.mp4`, running `java -jar ~/Downloads/bfg.jar --delete-files LargeFileSecondName.mp4` will not remove it from git history. Either run the `--delete-files` command with both filenames, or with a matching pattern. 
+
+#### Built-in Technique: Use git-filter-branch
+
+`git-filter-branch` is more cumbersome and has less features, but you may use it if you cannot install or run `bfg`. 
+
+In the below, replace `filepattern` may be a specific name or pattern, e.g. `*.jpg`. This will remove files matching the pattern from all history and branches.
+
+```sh
+(master)$ git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch filepattern' --prune-empty --tag-name-filter cat -- --all
+```
+
+Behind-the-scenes explanation:
+
+`--tag-name-filter cat` is a cumbersome, but simplest, way to apply the original tags to the new commits, using the command cat.
+
+`--prune-empty` removes any now-empty commits.
+
+#### Final Step: Pushing your changed repo history
+
+Once you have removed your desired files, test carefully that you haven't broken anything in your repo - if you have, it is easiest to re-clone your repo to start over.
+To finish, optionally use git garbage collection to minimize your local .git folder size, and then force push.
+```sh
+(master)$ git reflog expire --expire=now --all && git gc --prune=now --aggressive
+(master)$ git push origin --force --tags
+```
+
+Since you just rewrote the entire git repo history, the `git push` operation may be too large, and return the error `“The remote end hung up unexpectedly”`. If this happens, you can try increasing the git post buffer:
+```sh
+(master)$ git config http.postBuffer 524288000
+(master)$ git push --force
+```
+
+If this does not work, you will need to manually push the repo history in chunks of commits. In the command below, try increasing `<number>` until the push operation succeeds.
+```sh
+(master)$ git push -u origin HEAD~<number>:refs/head/master --force
+```
+Once the push operation succeeds the first time, decrease `<number>` gradually until a conventional `git push` succeeeds.
 
 <a href="i-need-to-change-the-content-of-a-commit-which-is-not-my-last"></a>
 ### I need to change the content of a commit which is not my last
@@ -410,7 +483,6 @@ which tells Git to recreate the commit, but to leave the commit message unedited
 ```
 
 will do the rest of the work for you.
-
 
 ## Staging
 
@@ -1557,6 +1629,39 @@ Note that this does *not* remove the file from source control - it is only ignor
 ```sh
 $ git update-index --no-assume-unchanged file-to-stop-ignoring
 ```
+
+## Debugging with Git
+
+The [git-bisect](https://git-scm.com/docs/git-bisect) command uses a binary search to find which commit in your Git history introduced a bug.
+
+Suppose you're on the `master` branch, and you want to find the commit that broke some feature. You start bisect:
+
+```sh
+$ git bisect start
+```
+
+Then you should specify which commit is bad, and which one is known to be good. Assuming that your *current* version is bad, and `v1.1.1` is good:
+
+```sh
+$ git bisect bad
+$ git bisect good v1.1.1
+```
+
+Now `git-bisect` selects a commit in the middle of the range that you specified, checks it out, and asks you whether it's good or bad. You should see something like:
+
+```sh
+$ Bisecting: 5 revision left to test after this (roughly 5 step)
+$ [c44abbbee29cb93d8499283101fe7c8d9d97f0fe] Commit message
+$ (c44abbb)$
+```
+
+You will now check if this commit is good or bad. If it's good:
+
+```sh
+$ (c44abbb)$ git bisect good
+```
+
+and `git-bisect` will select another commit from the range for you. This process (selecting `good` or `bad`) will repeat until there are no more revisions left to inspect, and the command will finally print a description of the **first** bad commit.
 
 ## Configuration
 
