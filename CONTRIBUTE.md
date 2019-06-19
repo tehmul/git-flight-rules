@@ -1,3 +1,8 @@
+---
+title: CONTRIBUTE
+tags: [Notebooks/personal/git/git-flight-rules]
+---
+
 # Contributing
 
 This is a community built document. Dive in and help out!
